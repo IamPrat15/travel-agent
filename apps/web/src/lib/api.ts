@@ -21,9 +21,7 @@ export interface Employee {
 export interface ClientInput {
   client_name: string;
   address: string;
-  city: string;
-  lat: number;
-  lng: number;
+  pincode: string;
 }
 
 export interface ParseInput {
