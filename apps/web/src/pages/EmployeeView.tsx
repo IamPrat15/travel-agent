@@ -27,7 +27,7 @@ export default function EmployeeView() {
 
   // Address dialog state
   const [addressOpen, setAddressOpen] = useState(false);
-  const [addressForm, setAddressForm] = useState({ client_name: "", address: "", city: "", lat: "", lng: "" });
+  const [addressForm, setAddressForm] = useState({ client_name: "", address: "", pincode: "" });
 
   useEffect(() => {
     if (!employeeId && employeesQuery.data && employeesQuery.data.length > 0) {
@@ -64,9 +64,7 @@ export default function EmployeeView() {
       user_supplied_client: {
         client_name: addressForm.client_name,
         address: addressForm.address,
-        city: addressForm.city,
-        lat: parseFloat(addressForm.lat),
-        lng: parseFloat(addressForm.lng),
+        pincode: addressForm.pincode,
       },
     });
   }
@@ -167,24 +165,17 @@ export default function EmployeeView() {
             <div>
               <Label htmlFor="ca">Address</Label>
               <Input id="ca" value={addressForm.address}
-                onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })} />
+                onChange={(e) => setAddressForm({ ...addressForm, address: e.target.value })}
+                placeholder="Office address (street, building, etc.)" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <Label htmlFor="cc">City</Label>
-                <Input id="cc" value={addressForm.city}
-                  onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })} />
-              </div>
-              <div>
-                <Label htmlFor="clat">Latitude</Label>
-                <Input id="clat" type="number" step="0.0001" value={addressForm.lat}
-                  onChange={(e) => setAddressForm({ ...addressForm, lat: e.target.value })} />
-              </div>
-              <div>
-                <Label htmlFor="clng">Longitude</Label>
-                <Input id="clng" type="number" step="0.0001" value={addressForm.lng}
-                  onChange={(e) => setAddressForm({ ...addressForm, lng: e.target.value })} />
-              </div>
+            <div>
+              <Label htmlFor="cpin">Pincode</Label>
+              <Input id="cpin" inputMode="numeric" maxLength={6} value={addressForm.pincode}
+                onChange={(e) => setAddressForm({ ...addressForm, pincode: e.target.value.replace(/\D/g, "") })}
+                placeholder="6-digit Indian pincode (e.g. 411014)" />
+              <p className="mt-1 text-xs text-muted-foreground">
+                We'll resolve city and coordinates automatically.
+              </p>
             </div>
           </div>
           <DialogFooter>
