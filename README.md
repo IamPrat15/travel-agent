@@ -8,6 +8,7 @@ An AI-powered travel request system: an employee writes one line ("I need to be 
 **Backend**: Node 20 + Express + TypeScript + Prisma ORM + Zod
 **Database**: PostgreSQL
 **LLM**: Anthropic Claude (with regex fallback if no API key)
+**Geocoding**: India Post API + built-in city table (no API key needed)
 **Deploy**: Render (Blueprint deploys all 3 services from one `render.yaml`)
 
 ## Repo layout
@@ -27,6 +28,7 @@ travel-agent/
 │   │       ├── routes/           (travel, employees, clients, finance)
 │   │       └── services/
 │   │           ├── intentParser.ts    (Anthropic SDK + regex fallback)
+│   │           ├── geocoding.ts       (India Post API + built-in city table)
 │   │           ├── policyEngine.ts    (distance bands × employee band → mode/class/hotel)
 │   │           ├── inventory.ts       (flight/train/hotel stubs)
 │   │           └── orchestrator.ts    (main flow + DB persistence + audit)
@@ -44,11 +46,12 @@ travel-agent/
 
 1. **Parse intent** (Anthropic Claude → regex fallback). Extracts origin, destination, dates, time windows, client.
 2. **Employee lookup** (Postgres). Band, home city, manager.
-3. **Client lookup** (Postgres). If not found, agent returns `needs_client_address` and the UI prompts the employee for it.
-4. **Policy engine** (Postgres-driven bands). Distance + band → mode (road/train/flight), class, hotel stars.
-5. **Inventory search** (stubs). Flights, trains, hotels with realistic fares.
-6. **Persist + audit**. Trip request saved with status `pending_finance_approval`, every state change logged.
-7. **Finance UI**. Approve / reject / mark-booked, with note and audit trail.
+3. **Client lookup** (Postgres). If not found, agent returns `needs_client_address` and the UI prompts for client name + address + 6-digit pincode.
+4. **Geocoding** (India Post API + built-in city table). Resolves the pincode to city + coordinates server-side.
+5. **Policy engine** (Postgres-driven bands). Distance + band → mode (road/train/flight), class, hotel stars.
+6. **Inventory search** (stubs). Flights, trains, hotels with realistic fares.
+7. **Persist + audit**. Trip request saved with status `pending_finance_approval`, every state change logged.
+8. **Finance UI**. Approve / reject / mark-booked, with note and audit trail.
 
 ## Quick deploy to Render
 
@@ -112,7 +115,7 @@ API endpoints (also useful for `curl` testing):
 | GET  | `/employees`           | list seeded employees |
 | GET  | `/clients?q=`          | search client directory |
 | POST | `/travel/parse`        | submit travel request (returns proposal or `needs_client_address`) |
-| POST | `/travel/submit`       | resubmit with `user_supplied_client` |
+| POST | `/travel/submit`       | resubmit with `user_supplied_client` (uses pincode) |
 | GET  | `/finance/queue?status=` | finance queue (default: pending) |
 | GET  | `/finance/:id`         | full detail + audit log |
 | POST | `/finance/:id/approve` | approve (body: `{approver, note}`) |
@@ -134,19 +137,32 @@ curl -X POST $API/travel/parse -H 'Content-Type: application/json' -d '{
   "text": "Need to fly to Bengaluru Monday morning, back Tuesday evening for client Acme Capital"
 }'
 
-# Resubmit with the address
+# Resubmit with the pincode (city + coordinates resolved server-side)
 curl -X POST $API/travel/submit -H 'Content-Type: application/json' -d '{
   "employee_id": "E1002",
   "text": "Need to fly to Bengaluru Monday morning, back Tuesday evening for client Acme Capital",
   "user_supplied_client": {
     "client_name": "Acme Capital",
-    "address": "Prestige Tech Park, Outer Ring Road, Bengaluru",
-    "city": "Bengaluru",
-    "lat": 12.9352,
-    "lng": 77.6914
+    "address": "Prestige Tech Park, Outer Ring Road",
+    "pincode": "560103"
   }
 }'
 ```
+
+## Geocoding (pincode → coordinates)
+
+When the user supplies a client that's not in the directory, they only enter a **6-digit Indian pincode**. The backend resolves it to coordinates in two steps:
+
+1. **India Post API** (`api.postalpincode.in/pincode/{PINCODE}`) — free, no key, returns district + state for any valid Indian pincode.
+2. **Built-in city table** — ~60 major Indian cities + every state capital, mapped to their lat/lng. The district name from step 1 is matched against the table (with aliases for renamed cities: Bangalore↔Bengaluru, Mysore↔Mysuru, Calcutta↔Kolkata, etc.).
+
+If the district isn't in the table, the lookup falls back to the **state capital's coordinates**. For an unknown state, the geocoder throws — extremely rare in practice.
+
+The first lookup of a pincode hits the India Post API; subsequent lookups for the same pincode are served from an in-memory cache.
+
+**Why no Google/Mapbox/OSM Nominatim?** Most free public geocoders rate-limit or block requests from cloud provider IPs (Render, AWS, etc.), making them unreliable in production. The India Post API is government-run and accepts cloud server requests reliably. The built-in table covers every major Indian business hub. Combined accuracy is more than enough for the policy engine, since the distance-band thresholds (250 km, 800 km) tolerate ±10 km error easily.
+
+If you need street-level precision (a paid use case beyond this demo), replace `lookupIndiaPost` in `geocoding.ts` with a call to MapMyIndia, Google Places, or LocationIQ — single function swap.
 
 ## Local development
 
@@ -162,7 +178,7 @@ cd apps/api
 cp .env.example .env
 # Edit .env: set DATABASE_URL, ANTHROPIC_API_KEY (optional), CORS_ORIGIN=http://localhost:5173
 npm install
-npx prisma migrate dev --name init
+npx prisma db push
 npx prisma db seed
 npm run dev
 # API on http://localhost:3000
@@ -209,6 +225,7 @@ Each component has a clean interface — swap one at a time without touching the
 | `EmployeeLookup` (Postgres seeded) | Sync from your HRMS/Workday/SuccessFactors into the `employees` table, or proxy the lookup live |
 | `ClientAddressLookup` (Postgres seeded) | Sync from CRM/Client Master into `clients` |
 | `PolicyEngine.BAND_ENTITLEMENT` (Postgres `policy_band` table) | Already in DB — just update rows. No deploy needed for policy changes |
+| Geocoding (India Post + city table) | MapMyIndia, Google Places, or LocationIQ for street-level precision |
 | `InventorySearch` flight stub | Amadeus / Sabre / TBO / corporate booking tool API |
 | `InventorySearch` train stub  | IRCTC partner API or aggregator |
 | `InventorySearch` hotel stub  | Booking.com EPS / Expedia Affiliate / corporate hotel program |
@@ -219,12 +236,14 @@ Each component has a clean interface — swap one at a time without touching the
 
 Free services spin down after ~15 min idle. With 3 tiers (web → API → DB), the first request after a cold start can take 60–90 seconds. Each subsequent request is fast. For client-facing demos, upgrade the API service to **Starter** ($7/mo) to keep it always-on.
 
+**Note on free Postgres:** Render's free database expires 30 days after creation. After that you have a 14-day grace period to upgrade to a paid tier ($7/month) before the database is deleted. For a permanent demo, plan on the $7/month Postgres or accept that you'll need to reseed periodically.
+
 ## Things to add before this is more than a demo
 
 - **Auth.** Currently the employee dropdown is a stub. Add JWT/SSO and infer `employee_id` from the token.
 - **Manager approval step.** Insert a `pending_manager_approval` state before `pending_finance_approval`.
 - **Email notifications.** SendGrid/SES on submit, approve, reject.
-- **Real distance.** Replace haversine with Google Distance Matrix or Mapbox for road/train (haversine is fine for flights).
-- **Geocoding.** When the user supplies a client address, call a geocoder server-side instead of asking them for lat/lng.
+- **Real distance.** Replace haversine with Google Distance Matrix or Mapbox for road/train (haversine is fine for flights, slightly underestimates road distance).
+- **Street-level geocoding.** The current pincode→city centroid is fine for distance-band policy; for actual hotel-near-office logic, swap in a paid geocoder.
 - **Audit reporting.** A "policy compliance" view aggregating audit logs for RBI/internal audit.
 - **Test suite.** Vitest for the frontend, Jest/Vitest + supertest for the backend.
