@@ -11,9 +11,7 @@ const ParseRequestSchema = z.object({
     .object({
       client_name: z.string().min(1),
       address: z.string().min(1),
-      city: z.string().min(1),
-      lat: z.number(),
-      lng: z.number(),
+      pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
     })
     .optional(),
 });
