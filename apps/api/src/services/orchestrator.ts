@@ -3,6 +3,7 @@ import { haversineKm } from "../lib/haversine";
 import { parseIntent } from "./intentParser";
 import { decidePolicy } from "./policyEngine";
 import { searchOutbound, searchInbound, searchHotel } from "./inventory";
+import { geocodePincode } from "./geocoding";
 
 export interface ProcessRequestInput {
   employeeId: string;
@@ -10,9 +11,7 @@ export interface ProcessRequestInput {
   userSuppliedClient?: {
     client_name: string;
     address: string;
-    city: string;
-    lat: number;
-    lng: number;
+    pincode: string;
   };
 }
 
@@ -39,21 +38,24 @@ export async function processRequest(input: ProcessRequestInput) {
     });
   }
   if (!client && userSuppliedClient) {
+    // Geocode the pincode → coordinates + canonical city name
+    const geo = await geocodePincode(userSuppliedClient.pincode);
+
     // Upsert the user-supplied client into the directory
     client = await prisma.client.upsert({
       where: { name: userSuppliedClient.client_name },
       update: {
         address: userSuppliedClient.address,
-        city: userSuppliedClient.city,
-        lat: userSuppliedClient.lat,
-        lng: userSuppliedClient.lng,
+        city: geo.city,
+        lat: geo.lat,
+        lng: geo.lng,
       },
       create: {
         name: userSuppliedClient.client_name,
         address: userSuppliedClient.address,
-        city: userSuppliedClient.city,
-        lat: userSuppliedClient.lat,
-        lng: userSuppliedClient.lng,
+        city: geo.city,
+        lat: geo.lat,
+        lng: geo.lng,
         source: "user_provided",
       },
     });
@@ -80,9 +82,9 @@ export async function processRequest(input: ProcessRequestInput) {
     return {
       status: "needs_client_address" as const,
       trip_request_id: draft.id,
-      message: `Client '${intent.client_name ?? "(not specified)"}' not found in directory. Please provide the client office address, city, and coordinates.`,
+      message: `Client '${intent.client_name ?? "(not specified)"}' not found in directory. Please provide the client office address and pincode.`,
       intent,
-      required_fields: ["client_name", "address", "city", "lat", "lng"],
+      required_fields: ["client_name", "address", "pincode"],
     };
   }
 
