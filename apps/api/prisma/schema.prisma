@@ -1,0 +1,92 @@
+// Travel Agent - Prisma schema
+// Replace stubs with real systems by changing how these tables are populated
+// (HRMS sync, client master sync, etc.) — the rest of the app keeps working.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Employee {
+  id            String   @id              // e.g. "E1001"
+  name          String
+  email         String   @unique
+  band          String                    // "B1".."B6"
+  homeCity      String
+  homeLat       Float
+  homeLng       Float
+  department    String
+  managerEmail  String
+  costCenter    String
+  createdAt     DateTime @default(now())
+
+  tripRequests  TripRequest[]
+}
+
+model Client {
+  id           String   @id @default(cuid())
+  name         String   @unique
+  address      String
+  city         String
+  lat          Float
+  lng          Float
+  source       String   @default("directory")  // "directory" | "user_provided"
+  createdAt    DateTime @default(now())
+
+  tripRequests TripRequest[]
+}
+
+// Policy bands - moved to DB so policy changes don't require redeploy
+model PolicyBand {
+  band         String   @id              // "B1".."B6"
+  flightClass  String
+  trainClass   String
+  hotelStars   Int
+  perDiemInr   Int
+  updatedAt    DateTime @updatedAt
+}
+
+model TripRequest {
+  id                  String   @id @default(cuid())
+  status              String                    // draft | needs_client_address | pending_finance_approval | approved | rejected | booked
+  rawText             String
+
+  employeeId          String
+  employee            Employee @relation(fields: [employeeId], references: [id])
+
+  clientId            String?
+  client              Client?  @relation(fields: [clientId], references: [id])
+
+  // Snapshot of the parsed intent + policy decision + chosen options
+  // Stored as JSON so we can evolve the shape without migrations
+  intent              Json
+  policy              Json?
+  outbound            Json?
+  inbound             Json?
+  hotel               Json?
+  estimatedTotalInr   Int?
+
+  financeNote         String?
+  approvedBy          String?
+  approvedAt          DateTime?
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  auditLogs           AuditLog[]
+}
+
+// Every state transition + policy decision lands here for audit
+model AuditLog {
+  id            String   @id @default(cuid())
+  tripRequestId String
+  tripRequest   TripRequest @relation(fields: [tripRequestId], references: [id], onDelete: Cascade)
+  event         String       // "created" | "policy_decided" | "needs_address" | "submitted" | "approved" | "rejected"
+  actor         String       // employee id, "system", or finance approver
+  details       Json
+  createdAt     DateTime @default(now())
+}
