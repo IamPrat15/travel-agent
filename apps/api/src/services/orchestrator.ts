@@ -16,10 +16,12 @@ export interface ProcessRequestInput {
     address: string;
     pincode: string;
   };
+  /** When user has answered the "do you need a hotel?" question, override the parser. */
+  needsHotelOverride?: boolean;
 }
 
 export async function processRequest(input: ProcessRequestInput) {
-  const { employeeId, text, userSuppliedClient } = input;
+  const { employeeId, text, userSuppliedClient, needsHotelOverride } = input;
 
   // 1. Employee lookup
   const employee = await prisma.employee.findUnique({ where: { id: employeeId } });
@@ -32,6 +34,11 @@ export async function processRequest(input: ProcessRequestInput) {
   // 2. Parse intent
   const intent = await parseIntent(text);
   if (!intent.origin_city) intent.origin_city = employee.homeCity;
+
+  // Apply user's explicit hotel decision if provided
+  if (typeof needsHotelOverride === "boolean") {
+    intent.needs_hotel = needsHotelOverride;
+  }
 
   // 3. Resolve client
   let client = null;
@@ -136,65 +143,68 @@ export async function processRequest(input: ProcessRequestInput) {
 
   const decision = await decidePolicy(employee.band, distanceKm);
 
+  // 4b. If hotel intent is ambiguous AND it's a multi-day trip, ask the user.
+  // (Same-day trips have needs_hotel=false set by the parser, so we don't
+  // ask in that case — same day = no hotel by definition.)
+  const isMultiDayTrip = intent.return_date && intent.return_date !== intent.depart_date;
+  if (intent.needs_hotel === null && isMultiDayTrip) {
+    const draft = await prisma.tripRequest.create({
+      data: {
+        status: "needs_hotel_decision",
+        rawText: text,
+        employeeId: employee.id,
+        clientId: client.id,
+        intent: intent as any,
+      },
+    });
+    await prisma.auditLog.create({
+      data: {
+        tripRequestId: draft.id,
+        event: "needs_hotel_decision",
+        actor: employee.id,
+        details: { question: "Hotel booking required?" } as any,
+      },
+    });
+    return {
+      status: "needs_hotel_decision" as const,
+      trip_request_id: draft.id,
+      message: `This is a multi-day trip (${intent.depart_date} to ${intent.return_date}). Do you need hotel booking?`,
+      intent,
+      required_fields: ["needs_hotel"],
+    };
+  }
+
   // 5. Inventory
-  // For road trips, replace flat-rate cab pricing with the corporate tariff
-  // calculator using the real distance from Google Maps (if available).
+  // For road trips, replace flat-rate cab pricing with the Ola/Uber-style
+  // corporate tariff (fare + tolls).
   const outbound = searchOutbound(intent, decision);
   const inbound  = searchInbound(intent, decision);
-  const hotel    = searchHotel(client.city, client.address, decision, intent.depart_date, intent.return_date);
 
-  // If road mode and we have a real distance, override the stub fare with
-  // a real corporate-tariff breakdown.
-  //
-  // Round-trip math: each leg pays its own distance-based base + tolls, and
-  // the total trip pays a single driver allowance pool (split evenly across
-  // both legs in the per-leg fare display). This matches how Indian outstation
-  // fleet vendors actually invoice.
+  // Hotel only if needs_hotel is true (or null for multi-day, but we
+  // intercept that above; null at this point means same-day = no hotel)
+  const includeHotel = intent.needs_hotel === true;
+  const hotel = includeHotel
+    ? searchHotel(client.city, client.address, decision, intent.depart_date, intent.return_date)
+    : null;
+
   let cabFareBreakdown: any = null;
   if (decision.mode === "road") {
     const cabClass = cabClassForBand(decision.travel_class);
     const isRoundTrip = intent.return_date && intent.return_date !== intent.depart_date;
+    const legs = isRoundTrip ? 2 : 1;
     const tripDays = isRoundTrip ? 2 : 1;
 
-    // Compute one-way fare (this gives base + driver_allowance for tripDays + tolls for one leg)
-    const oneWay = computeCabFare(distanceKm, cabClass, tripDays);
+    cabFareBreakdown = computeCabFare(distanceKm, cabClass, legs, tripDays);
 
-    // For the breakdown shown to finance, recompute the whole-trip view:
-    // - distance_km kept as one-way for clarity
-    // - base = 2 × one-way base for round-trip, 1 × for one-way
-    // - driver_allowance = full tripDays × per-day rate (NOT doubled - it's a pool)
-    // - tolls = legs × per-leg tolls
-    const legs = isRoundTrip ? 2 : 1;
-    const totalBase = oneWay.base_fare_inr * legs;
-    const totalDriver = oneWay.driver_allowance_inr; // already includes tripDays
-    const totalTolls = oneWay.toll_estimate_inr * legs;
-    const totalRoundTrip = totalBase + totalDriver + totalTolls;
-
-    cabFareBreakdown = {
-      cab_class: cabClass,
-      distance_km: oneWay.distance_km,
-      rate_per_km_inr: oneWay.rate_per_km_inr,
-      legs,
-      base_fare_inr_per_leg: oneWay.base_fare_inr,
-      base_fare_inr_total: totalBase,
-      driver_allowance_inr: totalDriver,
-      toll_estimate_inr_per_leg: oneWay.toll_estimate_inr,
-      toll_estimate_inr_total: totalTolls,
-      total_inr: totalRoundTrip,
-      is_outstation: oneWay.is_outstation,
-      trip_days: tripDays,
-    };
-
-    // Per-leg fare for display on outbound/inbound cards: one leg's share of
-    // base + tolls + half the driver allowance.
-    const oneLegFare = oneWay.base_fare_inr + oneWay.toll_estimate_inr + Math.round(totalDriver / legs);
+    // Per-leg display fare for outbound/inbound cards
+    const oneLegFare = cabFareBreakdown.base_fare_inr_per_leg + cabFareBreakdown.toll_estimate_inr_per_leg;
     outbound.fare_inr = oneLegFare;
     outbound.provider = `${cabClass} (Corporate Fleet)`;
     inbound.fare_inr = oneLegFare;
     inbound.provider = `${cabClass} (Corporate Fleet)`;
   }
 
-  const total = outbound.fare_inr + inbound.fare_inr + hotel.total_inr;
+  const total = outbound.fare_inr + inbound.fare_inr + (hotel?.total_inr ?? 0);
 
   // 6. Persist as pending finance approval
   const tripRequest = await prisma.tripRequest.create({

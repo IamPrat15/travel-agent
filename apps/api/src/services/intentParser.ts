@@ -10,6 +10,19 @@ export interface TravelIntent {
   purpose: string;
   client_name: string | null;
   raw_text: string;
+  /**
+   * Whether the trip needs hotel booking.
+   *   true:  user explicitly asked for hotel, OR overnight stay is needed
+   *          (depart_date != return_date)
+   *   false: user explicitly said no hotel, OR same-day trip with no overnight
+   *   null:  ambiguous — orchestrator should ask user to confirm
+   */
+  needs_hotel: boolean | null;
+  /**
+   * Whether the trip is intra-city (origin == destination).
+   * For the demo: detected by string match. Production: should use lat/lng.
+   */
+  is_intra_city: boolean;
 }
 
 const WEEKDAYS = ["monday","tuesday","wednesday","thursday","friday","saturday","sunday"];
@@ -21,6 +34,41 @@ const WINDOW_KEYWORDS: Record<string, string[]> = {
 const KNOWN_CITIES = [
   "mumbai","pune","delhi","bengaluru","bangalore","chennai","hyderabad",
   "kolkata","ahmedabad","jaipur","lucknow","kochi","goa","chandigarh","indore","nagpur",
+];
+
+// Phrases that explicitly indicate NO hotel is needed
+const NO_HOTEL_PHRASES = [
+  "no hotel",
+  "without hotel",
+  "without a hotel",
+  "no stay",
+  "day trip",
+  "same day",
+  "same-day",
+  "return same day",
+  "returning same day",
+  "no overnight",
+  "without overnight",
+  "no accommodation",
+  "no booking required",
+  "hotel not required",
+  "hotel is not required",
+  "no hotel booking",
+  "no hotel required",
+];
+
+// Phrases that explicitly indicate hotel IS needed
+const HOTEL_NEEDED_PHRASES = [
+  "need a hotel",
+  "need hotel",
+  "book a hotel",
+  "book hotel",
+  "with hotel",
+  "and hotel",
+  "stay overnight",
+  "overnight stay",
+  "for the night",
+  "stay the night",
 ];
 
 // ---------- Public entry point ----------
@@ -42,7 +90,7 @@ export async function parseIntent(text: string, today: Date = new Date()): Promi
 async function parseWithLLM(text: string, today: Date, apiKey: string): Promise<TravelIntent> {
   const client = new Anthropic({ apiKey });
   const todayStr = today.toISOString().slice(0, 10);
-  const todayWeekday = WEEKDAYS[(today.getDay() + 6) % 7]; // JS Sunday=0; we want Monday=0
+  const todayWeekday = WEEKDAYS[(today.getDay() + 6) % 7];
 
   const systemPrompt = `You parse one-line business travel requests into JSON.
 Today is ${todayStr} (${todayWeekday}).
@@ -56,18 +104,32 @@ Return ONLY a JSON object with these exact keys:
   "return_date":      "YYYY-MM-DD",
   "return_window":    "morning" | "afternoon" | "evening" | "any",
   "purpose":          short string,
-  "client_name":      string or null
+  "client_name":      string or null,
+  "needs_hotel":      true | false | null
 }
 
-Rules:
-- Resolve weekday names ("Tuesday") to the NEXT future occurrence of that weekday from today.
-- If no return date is given, assume next day after departure.
-- City names: title case, e.g. "Pune", "Bengaluru".
-- Output only the JSON object. No markdown, no commentary.`;
+CRITICAL: Read the request carefully. Do not invent details.
+
+Date rules:
+- Resolve weekday names ("Tuesday") to the NEXT future occurrence.
+- "tomorrow" = today + 1.
+- "today" = today.
+- If no return is given AND the trip seems like a day trip (e.g., "morning ... evening", "day trip"), return_date = depart_date.
+- Otherwise, return_date = depart_date + 1.
+
+Hotel rules — read these carefully:
+- needs_hotel = false if the user explicitly says: "no hotel", "day trip", "same day", "no overnight", "no accommodation", "hotel not required", "no hotel booking", or similar.
+- needs_hotel = false if the user describes a same-day round trip (e.g., "morning ... evening", "10 AM ... 6 PM same day", departure and return on the same date).
+- needs_hotel = true if user explicitly mentions hotel, overnight, "stay the night", multi-day with no other signal.
+- needs_hotel = null only when the request is genuinely ambiguous (multi-day trip but user didn't say either way).
+
+City names: title case ("Pune", "Bengaluru").
+
+Output only the JSON object. No markdown, no commentary.`;
 
   const message = await client.messages.create({
     model: "claude-sonnet-4-20250514",
-    max_tokens: 500,
+    max_tokens: 600,
     system: systemPrompt,
     messages: [{ role: "user", content: text }],
   });
@@ -75,13 +137,24 @@ Rules:
   const block = message.content.find((b) => b.type === "text");
   if (!block || block.type !== "text") throw new Error("No text in LLM response");
 
-  // Strip code fences if the model added them
   const cleaned = block.text.replace(/```json|```/g, "").trim();
   const parsed = JSON.parse(cleaned);
 
+  // Compute is_intra_city. The LLM doesn't compute this — origin matching
+  // destination by string is a server-side concern.
+  const origin = parsed.origin_city ?? null;
+  const dest = parsed.destination_city ?? "Unknown";
+  const isIntraCity = origin !== null && origin.trim().toLowerCase() === dest.trim().toLowerCase();
+
+  // Apply same-day inference if needs_hotel was returned as null
+  let needsHotel: boolean | null = parsed.needs_hotel ?? null;
+  if (needsHotel === null && parsed.depart_date === parsed.return_date) {
+    needsHotel = false;
+  }
+
   return {
-    origin_city: parsed.origin_city ?? null,
-    destination_city: parsed.destination_city,
+    origin_city: origin,
+    destination_city: dest,
     depart_date: parsed.depart_date,
     depart_window: parsed.depart_window ?? "any",
     return_date: parsed.return_date,
@@ -89,6 +162,8 @@ Rules:
     purpose: parsed.purpose ?? "business",
     client_name: parsed.client_name ?? null,
     raw_text: text,
+    needs_hotel: needsHotel,
+    is_intra_city: isIntraCity,
   };
 }
 
@@ -100,14 +175,28 @@ function parseWithRegex(text: string, today: Date): TravelIntent {
   const dest = extractCity(lower, ["to ", "in ", "at ", "for "]) ?? extractAnyCity(lower);
   const origin = extractCity(lower, ["from "]);
 
-  const { depart, returnDt } = extractDates(lower, today);
+  const { depart, returnDt, dayTrip } = extractDates(lower, today);
   const departWindow = extractWindow(lower);
   const returnWindow = extractReturnWindow(lower);
   const clientName = extractClient(text);
 
+  // Detect hotel intent from phrases
+  const explicitNoHotel = NO_HOTEL_PHRASES.some((p) => lower.includes(p));
+  const explicitYesHotel = HOTEL_NEEDED_PHRASES.some((p) => lower.includes(p));
+
+  let needsHotel: boolean | null;
+  if (explicitNoHotel) needsHotel = false;
+  else if (explicitYesHotel) needsHotel = true;
+  else if (dayTrip) needsHotel = false;
+  else if (depart.toISOString().slice(0, 10) === returnDt.toISOString().slice(0, 10)) needsHotel = false;
+  else needsHotel = null; // ambiguous, orchestrator should ask
+
+  const destStr = dest ?? "Unknown";
+  const isIntraCity = origin !== null && origin.toLowerCase() === destStr.toLowerCase();
+
   return {
     origin_city: origin,
-    destination_city: dest ?? "Unknown",
+    destination_city: destStr,
     depart_date: depart.toISOString().slice(0, 10),
     depart_window: departWindow,
     return_date: returnDt.toISOString().slice(0, 10),
@@ -115,6 +204,8 @@ function parseWithRegex(text: string, today: Date): TravelIntent {
     purpose: lower.includes("client") || lower.includes("meeting") ? "client meeting" : "business",
     client_name: clientName,
     raw_text: text,
+    needs_hotel: needsHotel,
+    is_intra_city: isIntraCity,
   };
 }
 
@@ -134,11 +225,28 @@ function extractAnyCity(lower: string): string | null {
   return null;
 }
 
-function extractDates(lower: string, today: Date): { depart: Date; returnDt: Date } {
+interface DateExtractionResult {
+  depart: Date;
+  returnDt: Date;
+  /** True if the request describes a same-day trip (day trip or "morning ... evening" pattern) */
+  dayTrip: boolean;
+}
+
+function extractDates(lower: string, today: Date): DateExtractionResult {
   let depart = addDays(today, 1);
   let returnDt = addDays(depart, 1);
+  let dayTrip = false;
 
-  const todayDow = (today.getDay() + 6) % 7; // make Mon=0
+  // Detect "tomorrow"
+  if (lower.includes("tomorrow")) {
+    depart = addDays(today, 1);
+    returnDt = addDays(depart, 1);
+  } else if (lower.includes("today")) {
+    depart = new Date(today);
+    returnDt = addDays(depart, 1);
+  }
+
+  const todayDow = (today.getDay() + 6) % 7;
   for (let i = 0; i < WEEKDAYS.length; i++) {
     const wd = WEEKDAYS[i];
     const idx = lower.indexOf(wd);
@@ -147,7 +255,6 @@ function extractDates(lower: string, today: Date): { depart: Date; returnDt: Dat
       if (daysAhead === 0) daysAhead = 7;
       depart = addDays(today, daysAhead);
 
-      // Look for a SECOND weekday after the first occurrence, for return
       const rest = lower.substring(idx + wd.length);
       let secondIdx: number | null = null;
       for (let j = 0; j < WEEKDAYS.length; j++) {
@@ -164,7 +271,37 @@ function extractDates(lower: string, today: Date): { depart: Date; returnDt: Dat
       break;
     }
   }
-  return { depart, returnDt };
+
+  // Same-day signals: "day trip", "same day", "morning ... evening" pattern,
+  // "tomorrow morning ... return same day", or "10 AM ... return"
+  const dayTripSignals = [
+    "day trip",
+    "same day",
+    "same-day",
+    "return same day",
+    "returning same day",
+  ];
+  if (dayTripSignals.some((s) => lower.includes(s))) {
+    dayTrip = true;
+    returnDt = new Date(depart);
+  }
+
+  // "morning ... evening" pattern (heuristic: both keywords present in same trip)
+  // and no second weekday referenced. Trips that span "morning to evening" of
+  // the same day are day trips.
+  const hasMorning = WINDOW_KEYWORDS.morning.some((kw) => lower.includes(kw));
+  const hasEvening = WINDOW_KEYWORDS.evening.some((kw) => lower.includes(kw));
+  if (hasMorning && hasEvening && !dayTrip) {
+    // Check there isn't a second weekday explicitly mentioned
+    let weekdayCount = 0;
+    for (const wd of WEEKDAYS) if (lower.includes(wd)) weekdayCount++;
+    if (weekdayCount <= 1) {
+      dayTrip = true;
+      returnDt = new Date(depart);
+    }
+  }
+
+  return { depart, returnDt, dayTrip };
 }
 
 function extractWindow(lower: string): TravelIntent["depart_window"] {
@@ -190,8 +327,10 @@ function extractReturnWindow(lower: string): TravelIntent["return_window"] {
 function extractClient(text: string): string | null {
   const m1 = /client\s+([A-Z][\w& ]{2,40})/.exec(text);
   if (m1) return m1[1].trim();
-  const m2 = /meeting with\s+([A-Z][\w& ]{2,40})/.exec(text);
+  const m2 = /meeting\s+([A-Z][\w& ]{2,40})/.exec(text);
   if (m2) return m2[1].trim();
+  const m3 = /meeting with\s+([A-Z][\w& ]{2,40})/.exec(text);
+  if (m3) return m3[1].trim();
   return null;
 }
 
@@ -202,5 +341,5 @@ function addDays(d: Date, n: number): Date {
 }
 
 function titleCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
+  return s.split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }

@@ -175,6 +175,7 @@ function runPolicyChecks(trip: any): VerdictCheck[] {
   const outbound = trip.outbound as any;
   const inbound = trip.inbound as any;
   const hotel = trip.hotel as any;
+  const intent = trip.intent as any;
 
   if (!policy) {
     checks.push({
@@ -190,6 +191,21 @@ function runPolicyChecks(trip: any): VerdictCheck[] {
   // 1. Mode-distance band match
   const km = policy.distance_km;
   const mode = policy.mode;
+
+  // 1a. Sanity: distance shouldn't be near zero. A 0 km "trip" usually means
+  // the destination resolved to the employee's home city, OR the client lookup
+  // returned a stale match. Either way, the request needs human review before
+  // any policy logic runs against it.
+  if (km < 5) {
+    checks.push({
+      id: "zero_distance_anomaly",
+      category: "sanity",
+      severity: "fail",
+      label: "Trip distance is suspiciously low",
+      detail: `Distance computed as ${km.toFixed(1)} km — likely a destination/client mismatch or intra-city trip. Human review required.`,
+    });
+  }
+
   let expectedMode: "road" | "train" | "flight";
   if (km < 250) expectedMode = "road";
   else if (km <= 800) expectedMode = (employee.band === "B5" || employee.band === "B6") ? "flight" : "train";
@@ -243,6 +259,29 @@ function runPolicyChecks(trip: any): VerdictCheck[] {
         severity: "fail",
         label: "Hotel above band entitlement",
         detail: `Band ${employee.band} entitled to ${expectedStars}-star; selected ${hotel.category_stars}-star is over-spec.`,
+      });
+    }
+  }
+
+  // 2b. Sanity: hotel vs trip-shape mismatch.
+  // If the user explicitly said no hotel but one was added anyway, flag it.
+  // If it's a same-day trip (depart == return) but a hotel was added, flag it.
+  if (hotel && intent) {
+    if (intent.needs_hotel === false) {
+      checks.push({
+        id: "hotel_vs_intent",
+        category: "sanity",
+        severity: "fail",
+        label: "Hotel added despite explicit 'no hotel' instruction",
+        detail: "Employee specified no hotel was needed, but an overnight stay is in the itinerary.",
+      });
+    } else if (intent.depart_date && intent.return_date && intent.depart_date === intent.return_date) {
+      checks.push({
+        id: "hotel_vs_intent",
+        category: "sanity",
+        severity: "fail",
+        label: "Hotel added to same-day trip",
+        detail: `Trip departs and returns on ${intent.depart_date} — no overnight stay needed.`,
       });
     }
   }
