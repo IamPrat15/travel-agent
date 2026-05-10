@@ -101,13 +101,6 @@ export function RouteMap({ route, cabFare, originLabel, destinationLabel }: Rout
               label={`Base fare (${cabFare.distance_km} km × ₹${cabFare.rate_per_km_inr}/km × ${cabFare.legs} leg${cabFare.legs === 1 ? "" : "s"})`}
               amount={cabFare.base_fare_inr_total}
             />
-            {cabFare.driver_allowance_inr > 0 && (
-              <FareRow
-                label={`Driver allowance (${cabFare.trip_days} day${cabFare.trip_days === 1 ? "" : "s"})`}
-                amount={cabFare.driver_allowance_inr}
-                hint={cabFare.is_outstation ? "outstation" : undefined}
-              />
-            )}
             {cabFare.toll_estimate_inr_total > 0 && (
               <FareRow
                 label={`Toll estimate (${cabFare.legs} leg${cabFare.legs === 1 ? "" : "s"})`}
