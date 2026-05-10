@@ -1,0 +1,537 @@
+/* =============================================================
+   FIRST AI Workspace — Design Tokens
+   v1.0  ·  Warm paper minimalism with surgical liquid glass
+
+   Architecture: Fluent 2 taxonomy · Fluid clamp scales · Liquid Glass surfaces
+   Layer order:
+     1. Reference / primitive tokens   (--ref-*)   raw values
+     2. Alias / semantic tokens        (--color-*, --space-*, ...)  meaning
+     3. Component tokens               (--btn-*, --field-*, ...)    bindings
+   Consume only alias + component tokens in product code.
+   ============================================================= */
+
+:root {
+  color-scheme: light;
+
+  /* ---------- 1. PRIMITIVES — Brand maroon ---------- */
+  /* 80 is the FIRST core (logo, primary brand). 60 is the warmer "celebration"
+     red used for italic period dots, recognition surfaces. */
+  --ref-maroon-10:  #fbf2f3;
+  --ref-maroon-20:  #f3d9dc;
+  --ref-maroon-30:  #e6acb1;
+  --ref-maroon-40:  #d27a82;
+  --ref-maroon-60:  #b83a44;
+  --ref-maroon-80:  #9c1d26;
+  --ref-maroon-100: #7a161e;
+  --ref-maroon-120: #5a1016;
+
+  /* ---------- 1. PRIMITIVES — Warm paper canvas ramp ---------- */
+  /* The defining feature of this system. Every step is a CREAM tone, never a
+     neutral gray — keeps the air warm. Canvas sits at 8. */
+  --ref-cream-0:    #ffffff;
+  --ref-cream-2:    #fdf9f6;
+  --ref-cream-4:    #fbf4ee;
+  --ref-cream-6:    #f8eee5;
+  --ref-cream-8:    #f5e9e0;   /* ← page canvas */
+  --ref-cream-10:   #f1e2d8;
+  --ref-cream-14:   #e9d4c8;
+  --ref-cream-22:   #d6bbab;
+  --ref-cream-38:   #b39785;
+
+  /* ---------- 1. PRIMITIVES — Warm neutral text ramp ---------- */
+  /* Slightly warm blacks. Never blue-gray. */
+  --ref-stone-50:   #6f6764;
+  --ref-stone-62:   #564e4b;
+  --ref-stone-74:   #3c3633;
+  --ref-stone-84:   #25201e;
+  --ref-stone-92:   #181513;
+  --ref-stone-100:  #0d0b0a;
+
+  /* ---------- 1. PRIMITIVES — Status (warm-tuned) ---------- */
+  --ref-forest-10:  #ecf3ed;
+  --ref-forest-60:  #2e7a52;
+  --ref-forest-80:  #1f5a3a;
+  --ref-honey-10:   #faf0dd;
+  --ref-honey-60:   #c8841a;
+  --ref-honey-80:   #a06408;
+  --ref-crimson-10: #f9e5e5;
+  --ref-crimson-60: #b23b3b;
+  --ref-crimson-80: #8a2a2a;
+  --ref-slate-10:   #ebf0f5;
+  --ref-slate-60:   #3b6fa8;
+  --ref-slate-80:   #284c75;
+
+  /* ---------- 1. PRIMITIVES — Avatar palette (categorical) ---------- */
+  /* For the colored initial-bubbles on email rows and leaderboards. */
+  --ref-avatar-caramel: #b8865f;
+  --ref-avatar-violet:  #8b6ea8;
+  --ref-avatar-sky:     #6b94c4;
+  --ref-avatar-sage:    #7aa68a;
+  --ref-avatar-coral:   #c87575;
+
+  /* ============================================================
+     2. ALIAS — COLOR
+     ============================================================ */
+
+  /* Brand */
+  --color-brand-bg-rest:        var(--ref-maroon-80);
+  --color-brand-bg-hover:       var(--ref-maroon-100);
+  --color-brand-bg-pressed:     var(--ref-maroon-120);
+  --color-brand-bg-warmer:      var(--ref-maroon-60);  /* celebration / recognition */
+  --color-brand-bg-subtle:      var(--ref-maroon-10);
+  --color-brand-fg:             var(--ref-maroon-80);
+  --color-brand-fg-warmer:      var(--ref-maroon-60);  /* the period dot */
+  --color-brand-fg-on-bg:       var(--ref-cream-0);
+
+  /* Surface — the warm-paper hierarchy */
+  --color-canvas:               var(--ref-cream-8);
+  --color-surface-1:            var(--ref-cream-4);   /* main cards */
+  --color-surface-2:            var(--ref-cream-6);   /* nested / inset blocks */
+  --color-surface-elevated:     var(--ref-cream-2);   /* hover, popovers */
+  --color-surface-inverse:      var(--ref-stone-92);  /* footers, code blocks */
+
+  /* Text */
+  --color-text-primary:         var(--ref-stone-92);
+  --color-text-secondary:       var(--ref-stone-62);
+  --color-text-tertiary:        var(--ref-stone-50);
+  --color-text-disabled:        var(--ref-cream-22);
+  --color-text-on-brand:        var(--ref-cream-0);
+  --color-text-on-dark:         var(--ref-cream-2);
+  --color-text-period-dot:      var(--ref-maroon-60);  /* the signature gesture */
+
+  /* Stroke — used very sparingly; this system relies on shadow over border */
+  --color-stroke-subtle:        rgba(86, 78, 75, 0.06);
+  --color-stroke-default:       rgba(86, 78, 75, 0.10);
+  --color-stroke-strong:        rgba(86, 78, 75, 0.18);
+  --color-stroke-focus:         var(--ref-maroon-80);
+
+  /* Status — used as small dots, never banners */
+  --color-status-green:         var(--ref-forest-60);
+  --color-status-green-bg:      var(--ref-forest-10);
+  --color-status-amber:         var(--ref-honey-60);
+  --color-status-amber-bg:      var(--ref-honey-10);
+  --color-status-red:           var(--ref-crimson-60);
+  --color-status-red-bg:        var(--ref-crimson-10);
+  --color-status-info:          var(--ref-slate-60);
+  --color-status-info-bg:       var(--ref-slate-10);
+
+  /* Tag chip — soft cream pill with bullet-dot prefix */
+  --color-chip-bg:              var(--ref-cream-2);
+  --color-chip-bg-hover:        var(--ref-cream-0);
+  --color-chip-fg:              var(--ref-stone-62);
+  --color-chip-dot:             var(--ref-stone-50);
+
+  /* ============================================================
+     2. ALIAS — TYPOGRAPHY
+     ============================================================ */
+  --font-family-sans:    'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-family-serif:   'Newsreader', 'Source Serif Pro', Georgia, serif;
+  --font-family-mono:    'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --font-weight-regular: 400;
+  --font-weight-medium:  500;
+  --font-weight-semibold:600;
+  --font-weight-bold:    700;
+  --font-weight-extra:   800;
+
+  /* Fluid type scale: clamp(min, fluid, max) — 360 → 1440 viewport */
+  --font-size-cap-2:     clamp(0.6875rem, 0.66rem + 0.12vw, 0.75rem);    /* 11→12 */
+  --font-size-cap-1:     clamp(0.75rem,   0.72rem + 0.12vw, 0.8125rem);  /* 12→13 */
+  --font-size-body-2:    clamp(0.8125rem, 0.79rem + 0.12vw, 0.875rem);   /* 13→14 */
+  --font-size-body-1:    clamp(0.9375rem, 0.91rem + 0.12vw, 1rem);       /* 15→16 */
+  --font-size-sub-2:     clamp(1rem,      0.96rem + 0.18vw, 1.0625rem);  /* 16→17 */
+  --font-size-sub-1:     clamp(1.125rem,  1.07rem + 0.24vw, 1.1875rem);  /* 18→19 */
+  --font-size-title-3:   clamp(1.25rem,   1.18rem + 0.30vw, 1.375rem);   /* 20→22 */
+  --font-size-title-2:   clamp(1.5rem,    1.40rem + 0.42vw, 1.6875rem);  /* 24→27 */
+  --font-size-title-1:   clamp(1.75rem,   1.62rem + 0.55vw, 2.125rem);   /* 28→34 */
+  --font-size-display-2: clamp(2.5rem,    2.20rem + 1.30vw, 3.25rem);    /* 40→52 */
+  --font-size-display-1: clamp(3rem,      2.60rem + 1.80vw, 4.25rem);    /* 48→68 */
+  --font-size-stat:      clamp(2.25rem,   1.95rem + 1.30vw, 3.25rem);    /* 36→52 — stat tiles */
+  --font-size-stat-xl:   clamp(3rem,      2.50rem + 2.20vw, 4.5rem);     /* 48→72 — kpi numerals */
+
+  --line-height-tight:   1.05;
+  --line-height-snug:    1.18;
+  --line-height-normal:  1.50;
+  --line-height-relaxed: 1.65;
+
+  --letter-spacing-display: -0.035em;
+  --letter-spacing-title:   -0.02em;
+  --letter-spacing-tight:   -0.015em;
+  --letter-spacing-normal:   0;
+  --letter-spacing-wide:     0.04em;
+  --letter-spacing-eyebrow:  0.12em;
+
+  /* ============================================================
+     2. ALIAS — SPACING (fluid 4-pt grid)
+     85% mobile → 100% desktop
+     ============================================================ */
+  --space-0:   0;
+  --space-2:   2px;
+  --space-4:   clamp(0.20rem,  0.18rem + 0.10vw, 0.25rem);
+  --space-6:   clamp(0.30rem,  0.27rem + 0.15vw, 0.375rem);
+  --space-8:   clamp(0.40rem,  0.36rem + 0.20vw, 0.5rem);
+  --space-12:  clamp(0.60rem,  0.54rem + 0.30vw, 0.75rem);
+  --space-16:  clamp(0.80rem,  0.72rem + 0.40vw, 1rem);
+  --space-20:  clamp(1rem,     0.90rem + 0.50vw, 1.25rem);
+  --space-24:  clamp(1.20rem,  1.08rem + 0.60vw, 1.5rem);
+  --space-32:  clamp(1.60rem,  1.44rem + 0.80vw, 2rem);
+  --space-40:  clamp(2rem,     1.80rem + 1.00vw, 2.5rem);
+  --space-48:  clamp(2.40rem,  2.16rem + 1.20vw, 3rem);
+  --space-64:  clamp(3.20rem,  2.88rem + 1.60vw, 4rem);
+  --space-80:  clamp(4rem,     3.60rem + 2.00vw, 5rem);
+  --space-128: clamp(6.40rem,  5.76rem + 3.20vw, 8rem);
+
+  /* ============================================================
+     2. ALIAS — RADIUS (this system runs LARGE)
+     Generous radii are part of the warm-paper aesthetic.
+     ============================================================ */
+  --radius-none:    0;
+  --radius-sm:      4px;
+  --radius-md:      8px;
+  --radius-lg:      12px;
+  --radius-xl:      16px;
+  --radius-2xl:     20px;
+  --radius-3xl:     28px;    /* main cards */
+  --radius-4xl:     36px;    /* hero / celebration cards */
+  --radius-pill:    9999px;
+
+  --stroke-thin:     1px;
+  --stroke-thick:    2px;
+
+  /* ============================================================
+     2. ALIAS — ELEVATION
+     Warm-tinted, very soft. This system uses LIGHT shadows — almost
+     imperceptible — and lets surfaces float through tone, not depth.
+     ============================================================ */
+  --shadow-1:  0 1px 2px rgba(56, 38, 30, 0.04);
+  --shadow-2:  0 2px 8px rgba(56, 38, 30, 0.04), 0 0 0 1px rgba(56, 38, 30, 0.02);
+  --shadow-3:  0 4px 16px rgba(56, 38, 30, 0.05), 0 1px 2px rgba(56, 38, 30, 0.04);
+  --shadow-4:  0 8px 28px rgba(56, 38, 30, 0.06), 0 2px 4px rgba(56, 38, 30, 0.04);
+  --shadow-5:  0 16px 48px rgba(56, 38, 30, 0.08), 0 4px 8px rgba(56, 38, 30, 0.05);
+  --shadow-6:  0 32px 64px rgba(56, 38, 30, 0.12), 0 8px 16px rgba(56, 38, 30, 0.06);
+
+  --shadow-brand:     0 8px 24px rgba(156, 29, 38, 0.18);
+  --shadow-celebrate: 0 16px 48px rgba(184, 58, 68, 0.18);
+  --shadow-medallion: 0 12px 32px rgba(122, 22, 30, 0.22),
+                      0 2px 4px rgba(122, 22, 30, 0.18);
+
+  /* ============================================================
+     2. ALIAS — RECOGNITION / CELEBRATION
+     The single place in the system where the canvas performs.
+     Reserved for milestone moments — never decorative, never auto.
+     ============================================================ */
+
+  /* Base linear wash — cream → peach → soft pink-violet */
+  --gradient-celebrate-base:
+    linear-gradient(135deg,
+      #fbeee5  0%,
+      #f8d8c4 22%,
+      #f5c2b6 45%,
+      #ecb8c5 70%,
+      #d6a8c0 100%);
+
+  /* Ambient glow stack — adds dimensional warmth on top of the base */
+  --gradient-celebrate-ambient:
+    radial-gradient(1000px 700px at 85% 15%, rgba(255, 200, 165, 0.55), transparent 60%),
+    radial-gradient(700px 500px at 18% 78%, rgba(218, 175, 200, 0.55), transparent 60%),
+    radial-gradient(500px 400px at 75% 95%, rgba(248, 200, 195, 0.40), transparent 60%);
+
+  /* Medallion ring — appears 3D via a 4-stop gradient (light/dark/dark/light) */
+  --gradient-medallion-ring:
+    linear-gradient(155deg,
+      #c44854 0%,
+      #9c1d26 38%,
+      #7a161e 62%,
+      #b83a44 100%);
+
+  /* Medallion face — luminous off-white disc with slight warmth */
+  --gradient-medallion-face:
+    radial-gradient(circle at 35% 28%,
+      #ffffff 0%,
+      #fff5ee 55%,
+      #fde0d0 100%);
+
+  /* ============================================================
+     2. ALIAS — MOTION
+     ============================================================ */
+  --duration-faster: 100ms;
+  --duration-fast:   150ms;
+  --duration-normal: 220ms;
+  --duration-slow:   320ms;
+  --duration-slower: 480ms;
+
+  /* Milestone timings — generous, savor-the-moment for Recognition reveals */
+  --duration-milestone:      720ms;
+  --duration-milestone-long: 1100ms;
+
+  --curve-decelerate: cubic-bezier(0.1, 0.9, 0.2, 1.0);
+  --curve-accelerate: cubic-bezier(0.7, 0.0, 1.0, 0.5);
+  --curve-easy-ease:  cubic-bezier(0.33, 0.0, 0.67, 1.0);
+  --curve-spring:     cubic-bezier(0.34, 1.56, 0.64, 1.0);
+  --curve-medallion:  cubic-bezier(0.16, 1.0, 0.3, 1.0);   /* slow exit, gentle settle */
+
+  /* ============================================================
+     2. ALIAS — LIQUID GLASS surfaces
+     Reserved for: nav, modals, sheet headers, hero tinted moments,
+     hover overlays. Glass needs hue underneath to refract — never
+     glass over flat white, never on data tables.
+     ============================================================ */
+  --glass-thin-bg:        rgba(253, 249, 246, 0.55);
+  --glass-thin-blur:      blur(12px) saturate(140%);
+  --glass-thin-border:    1px solid rgba(255, 255, 255, 0.40);
+
+  --glass-regular-bg:     rgba(253, 249, 246, 0.72);
+  --glass-regular-blur:   blur(20px) saturate(160%);
+  --glass-regular-border: 1px solid rgba(255, 255, 255, 0.50);
+
+  --glass-thick-bg:       rgba(253, 249, 246, 0.86);
+  --glass-thick-blur:     blur(32px) saturate(180%);
+  --glass-thick-border:   1px solid rgba(255, 255, 255, 0.60);
+
+  /* Warm-tinted glass — for hero / celebration cards (peach-pink wash) */
+  --glass-warm-bg:        linear-gradient(135deg,
+                            rgba(255, 235, 220, 0.65) 0%,
+                            rgba(255, 220, 210, 0.55) 50%,
+                            rgba(245, 200, 200, 0.60) 100%);
+  --glass-warm-blur:      blur(24px) saturate(160%);
+  --glass-warm-border:    1px solid rgba(255, 255, 255, 0.55);
+
+  /* Specular highlight — apply with the glass-specular box-shadow */
+  --glass-specular:
+    inset 0 1px 0 rgba(255, 255, 255, 0.65),
+    inset 0 -1px 0 rgba(56, 38, 30, 0.04);
+
+  /* ============================================================
+     2. ALIAS — LAYOUT
+     ============================================================ */
+  --layout-max-width:     1440px;
+  --layout-content-width: min(100% - var(--space-32), 1280px);
+  --layout-gutter:        var(--space-16);
+  --layout-margin:        clamp(var(--space-16), 4vw, var(--space-48));
+
+  --rail-width:           72px;
+
+  --z-base:     1;
+  --z-elevated: 10;
+  --z-sticky:   100;
+  --z-overlay:  1000;
+  --z-modal:    1100;
+  --z-toast:    1200;
+}
+
+/* =============================================================
+   DARK MODE — semantic tokens flip; primitives stay constant.
+   The "warm paper" inverts to "warm slate" — keep the warmth.
+   ============================================================= */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+
+    --color-canvas:               #1a1614;
+    --color-surface-1:            #25201d;
+    --color-surface-2:            #2f2925;
+    --color-surface-elevated:     #383028;
+    --color-surface-inverse:      var(--ref-cream-2);
+
+    --color-text-primary:         var(--ref-cream-2);
+    --color-text-secondary:       var(--ref-cream-22);
+    --color-text-tertiary:        var(--ref-cream-38);
+
+    --color-brand-bg-rest:        var(--ref-maroon-60);
+    --color-brand-bg-hover:       var(--ref-maroon-40);
+    --color-brand-fg:             var(--ref-maroon-30);
+    --color-brand-fg-warmer:      var(--ref-maroon-40);
+    --color-brand-bg-subtle:      rgba(184, 58, 68, 0.16);
+
+    --color-stroke-subtle:        rgba(255, 240, 230, 0.06);
+    --color-stroke-default:       rgba(255, 240, 230, 0.10);
+    --color-stroke-strong:        rgba(255, 240, 230, 0.18);
+
+    --color-chip-bg:              rgba(255, 240, 230, 0.06);
+    --color-chip-bg-hover:        rgba(255, 240, 230, 0.10);
+    --color-chip-fg:              var(--ref-cream-22);
+
+    --glass-thin-bg:        rgba(37, 32, 29, 0.55);
+    --glass-regular-bg:     rgba(37, 32, 29, 0.72);
+    --glass-thick-bg:       rgba(37, 32, 29, 0.86);
+    --glass-thin-border:    1px solid rgba(255, 240, 230, 0.08);
+    --glass-regular-border: 1px solid rgba(255, 240, 230, 0.10);
+    --glass-thick-border:   1px solid rgba(255, 240, 230, 0.12);
+
+    --shadow-1:  0 1px 2px rgba(0, 0, 0, 0.40);
+    --shadow-2:  0 2px 8px rgba(0, 0, 0, 0.45);
+    --shadow-3:  0 4px 16px rgba(0, 0, 0, 0.50);
+    --shadow-4:  0 8px 28px rgba(0, 0, 0, 0.55);
+    --shadow-5:  0 16px 48px rgba(0, 0, 0, 0.60);
+    --shadow-6:  0 32px 64px rgba(0, 0, 0, 0.70);
+
+    --shadow-brand:     0 8px 24px rgba(184, 58, 68, 0.30);
+    --shadow-celebrate: 0 16px 48px rgba(184, 58, 68, 0.30);
+    --shadow-medallion: 0 12px 32px rgba(0, 0, 0, 0.55),
+                        0 2px 4px rgba(184, 58, 68, 0.20);
+
+    /* Celebration in dark mode — warmth retained, luminosity dialed back */
+    --gradient-celebrate-base:
+      linear-gradient(135deg,
+        #2a1f1c   0%,
+        #3a2520  25%,
+        #4a2828  50%,
+        #3a2030  75%,
+        #2a1830 100%);
+    --gradient-celebrate-ambient:
+      radial-gradient(1000px 700px at 85% 15%, rgba(255, 160, 110, 0.20), transparent 60%),
+      radial-gradient(700px 500px at 18% 78%, rgba(180, 130, 170, 0.22), transparent 60%);
+    --gradient-medallion-ring:
+      linear-gradient(155deg,
+        #d4525e 0%,
+        #b83a44 38%,
+        #7a161e 62%,
+        #c44854 100%);
+    --gradient-medallion-face:
+      radial-gradient(circle at 35% 28%,
+        #3a2825 0%,
+        #2f1f1c 55%,
+        #1f1411 100%);
+  }
+}
+
+/* =============================================================
+   3. COMPONENT TOKENS — bound from aliases above.
+   ============================================================= */
+:root {
+  /* Button */
+  --btn-height-sm:        32px;
+  --btn-height-md:        40px;
+  --btn-height-lg:        48px;
+  --btn-padding-x-sm:     var(--space-12);
+  --btn-padding-x-md:     var(--space-20);
+  --btn-padding-x-lg:     var(--space-24);
+  --btn-radius:           var(--radius-pill);   /* fully rounded */
+  --btn-font-weight:      var(--font-weight-semibold);
+
+  /* Field */
+  --field-height:         44px;
+  --field-padding-x:      var(--space-16);
+  --field-radius:         var(--radius-lg);
+  --field-bg:             var(--color-surface-1);
+  --field-border:         var(--color-stroke-default);
+
+  /* Card */
+  --card-bg:              var(--color-surface-1);
+  --card-radius:          var(--radius-3xl);
+  --card-padding:         var(--space-32);
+  --card-shadow-rest:     var(--shadow-2);
+  --card-shadow-hover:    var(--shadow-3);
+
+  /* Tag chip */
+  --chip-height:          26px;
+  --chip-padding-x:       var(--space-12);
+  --chip-radius:          var(--radius-pill);
+  --chip-font-size:       var(--font-size-cap-1);
+
+  /* Status pill */
+  --status-pill-radius:   var(--radius-pill);
+
+  /* Avatar */
+  --avatar-size-sm:       28px;
+  --avatar-size-md:       40px;
+  --avatar-size-lg:       72px;
+
+  /* Medallion — Recognition page anchor */
+  --medallion-size-sm:    120px;
+  --medallion-size-md:    180px;
+  --medallion-size-lg:    240px;
+  --medallion-ring-width: 6px;
+
+  /* Focus ring */
+  --focus-ring:
+    0 0 0 2px var(--color-canvas),
+    0 0 0 4px var(--color-stroke-focus);
+}
+
+/* =============================================================
+   GLOBAL RESET / UTILITIES (opt-in)
+   Import this file FIRST, then your app styles.
+   ============================================================= */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  font-family: var(--font-family-sans);
+  font-size: var(--font-size-body-1);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background: var(--color-canvas);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-variant-numeric: tabular-nums;
+}
+
+/* SIGNATURE GESTURE 1 — the WHISPER (italic serif + red dot)
+   Used on every daily screen: the morning brief, inbox, priority, customer 360.
+   Quiet, conversational, personal. */
+.headline-serif {
+  font-family: var(--font-family-serif);
+  font-style: italic;
+  font-weight: 400;
+  letter-spacing: var(--letter-spacing-title);
+  line-height: var(--line-height-snug);
+  color: var(--color-text-primary);
+}
+.headline-serif .dot,
+.headline-serif::after { color: var(--color-text-period-dot); }
+
+/* SIGNATURE GESTURE 2 — the DECLARATION (bold sans + red dot)
+   Used only on milestone moments: Recognition page, fastest-close badge,
+   quarterly summary heroes. Earned volume — rare by design. */
+.headline-declaration {
+  font-family: var(--font-family-sans);
+  font-weight: var(--font-weight-extra);
+  letter-spacing: var(--letter-spacing-display);
+  line-height: var(--line-height-tight);
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.headline-declaration .dot { color: var(--color-text-period-dot); }
+
+/* Display sans — for stat numerals and big bold headlines */
+.display-sans {
+  font-family: var(--font-family-sans);
+  font-weight: var(--font-weight-extra);
+  letter-spacing: var(--letter-spacing-display);
+  line-height: var(--line-height-tight);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Eyebrow — monospace caps, tracked, secondary */
+.eyebrow {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-cap-2);
+  text-transform: uppercase;
+  letter-spacing: var(--letter-spacing-eyebrow);
+  color: var(--color-text-tertiary);
+  font-weight: var(--font-weight-medium);
+}
+.eyebrow-brand { color: var(--color-brand-fg-warmer); }
+
+/* Tabular figures — use anywhere amounts must align */
+.tabular, [data-numeric], table td, .amount, .stat {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1, 'lnum' 1;
+}
+
+/* Standard focus indicator */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
