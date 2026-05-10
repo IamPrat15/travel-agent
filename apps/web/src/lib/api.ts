@@ -42,6 +42,29 @@ export interface TripIntent {
   raw_text: string;
 }
 
+export interface RouteMeta {
+  distance_km: number;
+  duration_min: number;
+  polyline: string;
+  static_map_url: string | null;
+  data_source: "google_maps" | "haversine_fallback";
+}
+
+export interface CabFareBreakdown {
+  cab_class: string;
+  distance_km: number;
+  rate_per_km_inr: number;
+  legs: number;
+  base_fare_inr_per_leg: number;
+  base_fare_inr_total: number;
+  driver_allowance_inr: number;
+  toll_estimate_inr_per_leg: number;
+  toll_estimate_inr_total: number;
+  total_inr: number;
+  is_outstation: boolean;
+  trip_days: number;
+}
+
 export interface PolicyDecision {
   mode: string;
   travel_class: string;
@@ -49,27 +72,76 @@ export interface PolicyDecision {
   per_diem_inr: number;
   rationale: string[];
   distance_km: number;
+  route?: RouteMeta;
+  cab_fare_breakdown?: CabFareBreakdown | null;
 }
 
 export interface TripOption {
   option_id: string;
   mode: string;
   provider: string;
+  provider_logo_url?: string;
   depart_dt: string;
   arrive_dt: string;
+  duration_min?: number;
+  stops?: number;
   travel_class: string;
   fare_inr: number;
+  baggage_kg?: number;
+  refundable?: boolean;
+  booking_link?: string;
+  data_source?: "demo_stub" | "amadeus" | "tbo" | "irctc";
 }
 
 export interface HotelOption {
   hotel_id: string;
   name: string;
+  brand_chain?: string;
   category_stars: number;
   address: string;
   distance_km_from_client: number;
   nightly_rate_inr: number;
   total_inr: number;
+  nights?: number;
+  guest_rating?: number;
+  reviews_count?: number;
+  photo_urls?: string[];
+  amenities?: string[];
+  description?: string;
+  refundable?: boolean;
+  booking_link?: string;
+  data_source?: "demo_stub" | "booking_com" | "amadeus" | "tbo";
 }
+
+// ----- Verdict types (must match backend verdict.ts) -----
+
+export type CheckSeverity = "pass" | "info" | "warn" | "fail";
+
+export interface VerdictCheck {
+  id: string;
+  category: "policy" | "anomaly" | "sanity";
+  severity: CheckSeverity;
+  label: string;
+  detail: string;
+}
+
+export type VerdictRecommendation =
+  | "approve_recommended"
+  | "approve_with_review"
+  | "reject_recommended"
+  | "manual_review_required";
+
+export interface AiVerdict {
+  recommendation: VerdictRecommendation;
+  confidence: number;
+  checks: VerdictCheck[];
+  summary: string;
+  metrics: { pass: number; info: number; warn: number; fail: number };
+  generated_at: string;
+  llm_used: boolean;
+}
+
+// ----- Trip request -----
 
 export interface TripRequest {
   id: string;
@@ -88,6 +160,7 @@ export interface TripRequest {
   approvedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  verdict?: AiVerdict | null;
   employee?: Employee;
   client?: { id: string; name: string; address: string; city: string };
   auditLogs?: Array<{
@@ -107,6 +180,7 @@ export type ParseResponse =
       status: "submitted_to_finance";
       trip_request_id: string;
       payload: TripRequest;
+      verdict?: AiVerdict | null;
       next_step: string;
     };
 
@@ -151,5 +225,10 @@ export async function rejectTripRequest(id: string, approver: string, note?: str
 
 export async function markBooked(id: string, approver: string, note?: string) {
   const { data } = await api.post<TripRequest>(`/finance/${id}/mark-booked`, { approver, note });
+  return data;
+}
+
+export async function regenerateVerdict(id: string) {
+  const { data } = await api.post<AiVerdict>(`/finance/${id}/regenerate-verdict`);
   return data;
 }
