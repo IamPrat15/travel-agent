@@ -1,8 +1,18 @@
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
+import { computeVerdict } from "../services/verdict";
 
 const router = Router();
+
+// Helper: extract the most recent ai_verdict_generated audit log entry
+function extractLatestVerdict(auditLogs: any[]): any | null {
+  if (!auditLogs) return null;
+  const verdictLogs = auditLogs
+    .filter((a) => a.event === "ai_verdict_generated")
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return verdictLogs.length > 0 ? verdictLogs[0].details : null;
+}
 
 // GET /finance/queue - all pending requests (and optionally filter)
 router.get("/queue", async (req, res, next) => {
@@ -12,16 +22,29 @@ router.get("/queue", async (req, res, next) => {
       : "pending_finance_approval";
     const requests = await prisma.tripRequest.findMany({
       where: status === "all" ? {} : { status },
-      include: { employee: true, client: true },
+      include: {
+        employee: true,
+        client: true,
+        auditLogs: {
+          where: { event: "ai_verdict_generated" },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
-    res.json(requests);
+    // Attach latest verdict as a top-level field for easier consumption by UI
+    const enriched = requests.map((r: any) => ({
+      ...r,
+      verdict: r.auditLogs && r.auditLogs.length > 0 ? r.auditLogs[0].details : null,
+    }));
+    res.json(enriched);
   } catch (err) {
     next(err);
   }
 });
 
-// GET /finance/:id - full detail with audit log
+// GET /finance/:id - full detail with audit log + latest verdict surfaced
 router.get("/:id", async (req, res, next) => {
   try {
     const request = await prisma.tripRequest.findUnique({
@@ -33,7 +56,18 @@ router.get("/:id", async (req, res, next) => {
       },
     });
     if (!request) return res.status(404).json({ error: "Not found" });
-    res.json(request);
+    const verdict = extractLatestVerdict(request.auditLogs);
+    res.json({ ...request, verdict });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /finance/:id/regenerate-verdict - re-run the AI verdict
+router.post("/:id/regenerate-verdict", async (req, res, next) => {
+  try {
+    const verdict = await computeVerdict(req.params.id);
+    res.json(verdict);
   } catch (err) {
     next(err);
   }
