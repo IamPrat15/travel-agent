@@ -28,6 +28,8 @@ export interface ParseInput {
   employee_id: string;
   text: string;
   user_supplied_client?: ClientInput;
+  /** When user has answered the hotel question, pass their answer here. */
+  user_supplied_needs_hotel?: boolean;
 }
 
 export interface TripIntent {
@@ -40,6 +42,9 @@ export interface TripIntent {
   purpose: string;
   client_name: string | null;
   raw_text: string;
+  /** true | false | null (ambiguous) */
+  needs_hotel: boolean | null;
+  is_intra_city: boolean;
 }
 
 export interface RouteMeta {
@@ -57,7 +62,6 @@ export interface CabFareBreakdown {
   legs: number;
   base_fare_inr_per_leg: number;
   base_fare_inr_total: number;
-  driver_allowance_inr: number;
   toll_estimate_inr_per_leg: number;
   toll_estimate_inr_total: number;
   total_inr: number;
@@ -171,6 +175,13 @@ export interface TripRequest {
 export type ParseResponse =
   | {
       status: "needs_client_address";
+      trip_request_id: string;
+      message: string;
+      intent: TripIntent;
+      required_fields: string[];
+    }
+  | {
+      status: "needs_hotel_decision";
       trip_request_id: string;
       message: string;
       intent: TripIntent;
