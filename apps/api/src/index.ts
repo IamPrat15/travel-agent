@@ -6,6 +6,7 @@ import travelRoutes from "./routes/travel";
 import employeeRoutes from "./routes/employees";
 import clientRoutes from "./routes/clients";
 import financeRoutes from "./routes/finance";
+import { isGoogleMapsConfigured } from "./services/googleMaps";
 
 const app = express();
 const PORT = Number(process.env.PORT ?? 3000);
@@ -23,6 +24,7 @@ app.get("/health", (_req, res) => {
   res.json({
     status: "ok",
     llm_configured: Boolean(process.env.ANTHROPIC_API_KEY && process.env.ANTHROPIC_API_KEY.length > 10),
+    google_maps_configured: isGoogleMapsConfigured(),
   });
 });
 
@@ -46,6 +48,7 @@ app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(PORT, () => {
   console.log(`Travel agent API listening on :${PORT}`);
-  console.log(`  CORS origin: ${corsOrigin}`);
-  console.log(`  LLM intent parser: ${process.env.ANTHROPIC_API_KEY ? "enabled" : "regex fallback"}`);
+  console.log(`  CORS origin:        ${corsOrigin}`);
+  console.log(`  LLM intent parser:  ${process.env.ANTHROPIC_API_KEY ? "enabled" : "regex fallback"}`);
+  console.log(`  Google Maps Routes: ${isGoogleMapsConfigured() ? "enabled" : "haversine fallback"}`);
 });
