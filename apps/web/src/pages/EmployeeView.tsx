@@ -432,20 +432,6 @@ function ResultCard({ response }: { response: Extract<ParseResponse, { status: "
         {r.inbound  && <SegmentCard title="Return"   o={r.inbound} />}
         {r.hotel    && <HotelCard h={r.hotel} />}
       </div>
-
-      {/* Demo data disclosure */}
-      {(r.outbound?.data_source === "demo_stub" ||
-        r.inbound?.data_source === "demo_stub" ||
-        r.hotel?.data_source === "demo_stub") && (
-        <Surface tone="surface-2" radius="lg" padded="tight">
-          <p style={{ margin: 0, fontFamily: "var(--font-family-sans)", fontSize: "var(--font-size-cap-1)", color: "var(--color-text-tertiary)", lineHeight: "var(--line-height-relaxed)" }}>
-            <span style={{ fontFamily: "var(--font-family-mono)", textTransform: "uppercase", letterSpacing: "var(--letter-spacing-eyebrow)", marginRight: "var(--space-8)" }}>
-              Demo data
-            </span>
-            Flight, train and hotel options shown are illustrative. Production sources live inventory from licensed booking partners.
-          </p>
-        </Surface>
-      )}
     </div>
   );
 }
