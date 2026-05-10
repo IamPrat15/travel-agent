@@ -44,6 +44,10 @@ export default function EmployeeView() {
   const [pincode, setPincode] = useState("");
   const [error, setError] = useState<string | null>(null);
 
+  // Hotel-decision dialog state — shown when intent is ambiguous on multi-day trip
+  const [showHotelDialog, setShowHotelDialog] = useState(false);
+  const [hotelDialogMessage, setHotelDialogMessage] = useState<string>("");
+
   const employeesQuery = useQuery({ queryKey: ["employees"], queryFn: getEmployees });
 
   useEffect(() => {
@@ -60,6 +64,9 @@ export default function EmployeeView() {
       if (data.status === "needs_client_address") {
         setClientName(data.intent.client_name ?? "");
         setShowAddressDialog(true);
+      } else if (data.status === "needs_hotel_decision") {
+        setHotelDialogMessage(data.message);
+        setShowHotelDialog(true);
       }
     },
     onError: (err: any) => {
@@ -74,6 +81,15 @@ export default function EmployeeView() {
       user_supplied_client: { client_name: clientName, address, pincode },
     });
     setShowAddressDialog(false);
+  };
+
+  const resubmitWithHotelAnswer = (needsHotel: boolean) => {
+    submitMutation.mutate({
+      employee_id: employeeId,
+      text,
+      user_supplied_needs_hotel: needsHotel,
+    });
+    setShowHotelDialog(false);
   };
 
   const onSubmit = () => {
@@ -222,6 +238,52 @@ export default function EmployeeView() {
             <Button variant="outline" onClick={() => setShowAddressDialog(false)}>Cancel</Button>
             <Button onClick={resubmitWithClient} disabled={!clientName.trim() || !address.trim() || pincode.length !== 6}>
               Resolve and submit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hotel decision dialog — shown when trip is multi-day but hotel intent unclear */}
+      <Dialog open={showHotelDialog} onOpenChange={setShowHotelDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Do you need hotel booking?</DialogTitle>
+            <DialogDescription>
+              {hotelDialogMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <p
+            style={{
+              fontFamily: "var(--font-family-sans)",
+              fontSize: "var(--font-size-body-2)",
+              color: "var(--color-text-secondary)",
+              lineHeight: "var(--line-height-relaxed)",
+              margin: "var(--space-8) 0",
+            }}
+          >
+            If you'll stay overnight at the destination, we'll add a hotel matching your band entitlement. If you have your own arrangements or you're returning the same day, skip the hotel.
+          </p>
+          <DialogFooter style={{ gap: "var(--space-8)" }}>
+            <Button
+              variant="outline"
+              onClick={() => resubmitWithHotelAnswer(false)}
+              disabled={submitMutation.isPending}
+              style={{ borderRadius: "var(--radius-pill)", fontWeight: "var(--font-weight-semibold)" }}
+            >
+              No hotel needed
+            </Button>
+            <Button
+              onClick={() => resubmitWithHotelAnswer(true)}
+              disabled={submitMutation.isPending}
+              style={{
+                background: "var(--color-text-primary)",
+                color: "var(--color-text-on-brand)",
+                borderRadius: "var(--radius-pill)",
+                fontWeight: "var(--font-weight-semibold)",
+                border: "none",
+              }}
+            >
+              {submitMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Yes, book hotel"}
             </Button>
           </DialogFooter>
         </DialogContent>
