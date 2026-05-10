@@ -14,6 +14,8 @@ const ParseRequestSchema = z.object({
       pincode: z.string().regex(/^\d{6}$/, "Pincode must be 6 digits"),
     })
     .optional(),
+  /** When user has answered the "do you need a hotel?" question, pass their answer here. */
+  user_supplied_needs_hotel: z.boolean().optional(),
 });
 
 router.post("/parse", async (req, res, next) => {
@@ -23,6 +25,7 @@ router.post("/parse", async (req, res, next) => {
       employeeId: body.employee_id,
       text: body.text,
       userSuppliedClient: body.user_supplied_client,
+      needsHotelOverride: body.user_supplied_needs_hotel,
     });
     res.json(result);
   } catch (err) {
@@ -30,7 +33,6 @@ router.post("/parse", async (req, res, next) => {
   }
 });
 
-// /submit is the same handler — used after the user supplies the client address
 router.post("/submit", async (req, res, next) => {
   try {
     const body = ParseRequestSchema.parse(req.body);
@@ -38,6 +40,7 @@ router.post("/submit", async (req, res, next) => {
       employeeId: body.employee_id,
       text: body.text,
       userSuppliedClient: body.user_supplied_client,
+      needsHotelOverride: body.user_supplied_needs_hotel,
     });
     res.json(result);
   } catch (err) {
